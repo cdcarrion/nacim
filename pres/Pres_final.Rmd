@@ -1,0 +1,333 @@
+---
+title: "Factores que influyen en el peso al nacer"
+short-title: "Econometría 1"
+author: "Cristian Carrion"
+short-author: "C. Carrión"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'      # Month DD, YYYY (Main Slide)
+short-date: '`r format(Sys.Date(), "%m/%d/%Y")`' # MM/DD/YYYY (Lower Right)
+institute: "Escuela Politécnica Nacional"
+short-institute: "EPN"
+department: "Proyecto Final"                # Institute must be defined
+license: "wwwcristiancarrion@gmail.com " # Provides slide headings
+safe-columns: true                               # Enables special latex macros for columns.
+fontsize: 11pt
+ioslides_presentation:
+    smaller: true
+output: 
+   uiucthemes::beamer_illinois
+---
+
+```{r setup, include=FALSE, echo = FALSE, warning = FALSE, fig.align="center"}
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed, comment = NA)
+```
+
+```{r data, include=FALSE}
+library(MOTE)
+library(foreign)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(stargazer)
+nacimientos2017 <- read.spss("C:\\Users\\Usuario\\Documents\\ESCUELA POLITÉCNICA NACIONAL\\QUINTO SEMESTRE\\Econometria 1\\Nacimientos\\Datos_abiertos_ENV_2017\\Datos_abiertos_ENV_2017\\ENV_2017.sav",
+                             use.value.labels = F,
+                             to.data.frame = T)
+
+attach(nacimientos2017) 
+
+nac17 <- nacimientos2017 %>% 
+  filter(peso > 99) %>% 
+  mutate(sem_gest = if_else(sem_gest == 99, 0, 1)) 
+attach(nac17)
+
+#table(nac17$sem_gest)
+
+nac17new <- nacimientos2017 %>% 
+  filter(peso != 99,
+         sem_gest != 99,
+         anio_nac == 2017,
+         edad_mad != 99) %>% 
+  mutate(edad_mad2 = edad_mad*edad_mad)     # para crear una nueva variable
+```
+
+
+# Objetivo
+
+### 
+
+Identificar las variables que influyen en el peso al nacer.
+
+- Inmediatamente después del nacimiento se pesa y se mide al bebe puesto que el peso y la talla son los principales indicadores por lo que los pediatras evalúan el desarrollo físico.
+
+- El presente trabajo busca predecir el peso del neonato mediante la información disponible en la base de datos *"Nacidos Vivos 2017" * del *INEC* mediante la técnica de modelación de mínimos cuadrados ordinarios (MCO) en base a la información de los niños nacidos en el año 2017.
+
+
+# ¿Qué variables influyen en el peso? 
+
+###
+![Variables que influyen en el peso del neonato](C:/Users/Usuario/Documents/Nacimientos_eco1/var_dep.png)
+
+# Base de datos
+
+## Variable dependiente
+
+###
+
+La base de datos "Nacidos Vivos 2017" del INEC cuenta con 281361 observaciones las cuales serán utilizadas en el estudio, las variables que utilizaremos son:
+
+- **Variable dependiente**: 
+    - *Peso*: peso del nacido vivoen gramos.
+
+
+
+## Variables independiente
+
+###
+- **Variables Independientes**:
+    - *Sexo*: sexo del neonato
+    - *Talla*: talla de nacido vivo.
+    - *Semanas de gestación*: periodo comprendido entre la última menstruación hasta el momento de la salida del producto de la concepción.
+    - *Edad de la madre*: edad de la madre a la fecha del parto.
+    - *Número de controles prenatales recibidos durante el embarazo*: indica cuantos controles realizo la madre a su embarazo.
+    - *Número de embarazos que ha tenido la madre*: muestra el número de embarazos que ha tenido la madre anteriormente.
+    - *Etnia*: autoidentificación étnica de la madre del nacido vivo.
+    - *Estado civil*: es el estado civil o conyugal de la madre del nacido vivo.
+
+
+# Análisis Exploratorio
+
+## Semanas de gestación
+
+###
+Existe una mayor cantidad de mujeres que dan a luz entre las semanas 37 y 42, lo cual es el tiempo normal de embarazo. En este tiempo el bebé ya se encuentra totalmente desarrollado.
+
+```{r plot_gest, echo=FALSE, out.width = '60%', message=FALSE, warning=FALSE, results=T, fig.align = "center",fig.cap='Histograma de semanas de Gestación'}
+# out.width = '50%'  .... para el 50% del tamaño del grafico en el chunk
+plot_gest <- ggplot(data=nac17new, aes(sem_gest,fill=peso)) +
+              geom_histogram() +
+                labs(x = NULL,
+                     y = "Peso",
+                     caption = "Elaborado por: Cristian Carrión")
+plot_gest
+```
+
+## Edad de la madre
+
+###
+
+Las mujeres en el Ecuador dan a luz entre la edad de 18 y 42 años aproximadamente. El embarazo adolescente y niñez representa un 14.35%,(edad de la madre entre 10 a 18 años), sin embargo, la edad media en la cual una mujer da a luz es a los 25 años.
+```{r plot_ed_mad, echo=FALSE, out.width = '60%', message=FALSE, warning=FALSE, results=T, fig.align = "center", fig.cap='Histograma de la edad de la madre'}
+plot_edad_mad <- ggplot(data=nac17new, aes(edad_mad,fill=peso)) +
+                geom_histogram() +
+                labs(x = NULL,
+                     y = "Peso",
+                     caption = "Elaborado por: Cristian Carrión")
+plot_edad_mad
+```
+
+## Número de embarazos
+
+###
+Se evidencia que un 35,92% era madre por primera vez, un 29,05% había tenido un embarazo anteriormente y un 35,02% habían tenido 3 o más embarazos anteriormente. Es importante mencionar que existen 28 casos en los que la mujer ha llegado a tener aproximadamente 38 embarazos.
+```{r plot_num_emb, echo=FALSE, fig.align="center", fig.cap='Histograma del número de embarazos', out.width = '60%', message=FALSE, warning=FALSE, results= T}
+plot_num_emb <- ggplot(data=nac17new, aes(num_emb,fill=peso)) +
+  geom_histogram() +
+                labs(x = NULL,
+                     y = "Peso",
+                     caption = "Elaborado por: Cristian Carrión")
+plot_num_emb
+```
+
+# Modelo estimado
+
+## Correlograma
+
+###
+```{r corrplot1, echo=FALSE, fig.align="center", fig.cap='Correlograma del Modelo 1', message=FALSE, warning=FALSE, results= "asis", out.width = '70%', }
+library(corrplot)
+CorrDF <- subset(nac17new, select=c(peso, sexo, talla, sem_gest, edad_mad, con_pren, num_emb, etnia, est_civil))
+Corr <- cor(CorrDF, use="pairwise.complete.obs")
+colnames(Corr) <- c("Peso",
+                    "Sexo", 
+                              "Talla", 
+                              "Semanas de Gestación", 
+                              "Edad de la madre", 
+                              "Controles prenatales", 
+                              "# de embarazos", 
+                              "Etnia",
+                              "Estado Civil")
+
+rownames(Corr) <- c("Peso","Sexo", 
+                              "Talla", 
+                              "Semanas de Gestación", 
+                              "Edad de la madre", 
+                              "Controles prenatales", 
+                              "# de embarazos", 
+                              "Etnia",
+                              "Estado Civil")
+corrplot(Corr, method = "number",  tl.col="black", tl.cex=.8, tl.srt=45, type="lower")
+
+```
+Esta matriz de correlación similar a un "mapa de calor" ya que enfatiza a aquellas variables que tienen un mayor grado de correlación. Esto no sorprende a que a mayor *Talla* o *Semanas de gestación* tendrá mayor *Peso* el neonato, pero va a ser importante estas variables para el modelo.
+
+###
+```{r corrplot2, echo=FALSE, fig.align="center", fig.cap='Correlograma del modelo 2', message=FALSE, warning=FALSE, results= "asis", fig.height=4, fig.width=6}
+CorrDF2 <- subset(nac17new, select=c(peso, sexo, talla, sem_gest, edad_mad, edad_mad2, con_pren, num_emb, etnia, est_civil))
+Corr2 <- cor(CorrDF2, use="pairwise.complete.obs")
+colnames(Corr2) <- c("Peso","Sexo", 
+                              "Talla", 
+                              "Semanas de Gestación", 
+                              "Edad de la madre",
+                             "Edad de la madre^2",
+                              "Controles prenatales", 
+                              "# de embarazos", 
+                              "Etnia",
+                              "Estado Civil")
+
+rownames(Corr2) <- c("Peso","Sexo", 
+                              "Talla", 
+                              "Semanas de Gestación", 
+                              "Edad de la madre",
+                               "Edad de la madre^2",
+                              "Controles prenatales", 
+                              "# de embarazos", 
+                              "Etnia",
+                              "Estado Civil")
+cr2 <- corrplot(Corr2, method = "number",  tl.col="black", tl.cex=.8, tl.srt=45, type="lower")
+```
+
+### Regresiones
+```{r regr, cache=FALSE, include=FALSE, results=FALSE, size="small", tidy=TRUE}
+regresion <- lm(peso ~ sexo + talla + sem_gest + edad_mad + con_pren + num_emb + etnia + est_civil, data = nac17new)
+regplot2 <- lm(peso ~ sexo + talla + sem_gest + edad_mad + edad_mad2 + con_pren + num_emb + factor(etnia) + factor(est_civil), 
+              data = nac17new)
+library(sandwich)
+library(lmSupport)
+library(lmtest)
+coeftest(regplot2, vcovHC(regplot2,"HC0"))
+
+
+
+#library(sandwich)
+#cov <- vcovHC(regresion, type = "HC")
+#robust.se <- sqrt(diag(cov))
+
+#st <- stargazer(regresion, regresion, se=list(NULL, robust.se),
+#column.labels=c("Default","Robustos"), 
+#          title="Resultado de los modelos",
+#          keep.stat="n", ci=TRUE, ci.level=0.90, single.row=TRUE,
+#          label="tab:descript")
+stargazer(regresion, regplot2, 
+          title="Resultado de los modelos",
+          label="tab:descript",
+omit.stat=c("LL","ser","f"), 
+no.space=TRUE,
+ ci=TRUE, ci.level=0.90, single.row=TRUE)
+```
+![Resultados de la Regresión](C:/Users/Usuario/Documents/Nacimientos_eco1/regr.png)
+
+###
+```{r pltcof, echo=FALSE, fig.cap='Gráfico de los coeficientes', fig.height=4, fig.width=3, cache=TRUE}
+library(lmtest)
+# resettest(regresion,power=2,type="regressor")
+
+library(jtools)
+library(broom)
+#library(dotwhisker)
+
+#regplot2 <- lm(peso ~ sexo + talla + sem_gest + edad_mad + edad_mad2 + con_pren + num_emb + etnia + #est_civil, 
+#              data = nac17new)
+
+#dwplot(list(regresion, regplot2),
+#       vline = geom_vline(xintercept = 0, colour = "grey60", linetype = 2)) %>% # plot line at zero _behind_ coefs
+#    relabel_predictors(c(sexo ="Sexo",
+ #                        talla = "Talla",
+  #                       sem_gest = "Semanas de Gestación",
+   #                      edad_mad = "Edad de la madre",
+    #                     edad_mad2 = "Edad de la madre^2",
+     #                    con_pren = "Controles prenatales",
+      #                   num_emb = "Numero de embarazos",
+       #                  etnia = "Etnia",
+        #                 est_civil = "Estado Civil")) +
+     #theme_bw() + xlab("Coeficientes Estimados") + ylab("") +
+     #geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+     #theme(plot.title = element_text(face="bold"),
+      #     legend.position = c(0.007, 0.01),
+         #  legend.justification = c(0, 0), 
+      #     legend.background = element_rect(colour="grey80"),
+     #      legend.title = element_blank()) +
+  # labs(caption = "Elaborado por: Cristian Carrión")
+
+library(GGally)
+gg <- ggcoef(regplot2, 
+       exponentiate = TRUE, 
+       exclude_intercept = TRUE,
+errorbar_height = .2, 
+color = "blue", 
+sort = "ascending")
+gg
+```
+
+## Heterocedasticidad
+
+### Test de Breusch-Pagan
+```{r bp_test, echo=FALSE, message=FALSE, warning=FALSE, results=T}
+library(lmtest)
+library(car)
+bptest(regplot2)
+```  
+
+Al ejecutar el test de Breusch-Pagan se evidencia que existe heterocedasticidad y la varianza del error no es constante, es decir, se rechaza la Ho: Homocedasticidad.
+
+## Multicolinealidad
+
+### VIF
+```{r multico, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results=T}
+vif(regplot2)
+``` 
+                                            GVIF (1)         Df        GVIF (2)
+---------------------------------       ---------------    --------  ------------   
+    Sexo                                  1.013524            1         1.013506
+    Talla                                  1.357594           1         1.356618
+    Semanas de gestación                  1.348218            1         1.347589
+    Edad de la madre                      1.649833            1         55.331877
+    Edad de la madre ^2                                       1         54.487281
+    # de control prenatal                 1.056023            1         1.049522
+    Numero de embarazos                   1.441178            1         1.427545
+    Factor(Etnia)                         1.036114            8         1.019334
+    Factor(Estado Civil)                  1.223863            7         1.046738
+    
+Table: "Variance Inflation Factors" del modelo      
+
+# Resultados
+
+###
+
+\begin{exampleblock}{Modelo}
+\begin{equation} 
+  Peso\left(x\right) = \beta_{0} + \beta_{1}Sexo + ... + \beta_{8}Etnia
+  \label{eq:binom}
+\end{equation} 
+\end{exampleblock}
+
+Todas las variables de estudio fueron sometidas a un Test de hipótesis, con lo cual se ha comprobado que estas son estadísticamente significantes con un nivel de confianza del 95%. Es necesario aclarar que todo el análisis que se presentará ocurre en "ceteris paribus".
+
+- **Mujer**: El hecho de que el recién nacido sea mujer, disminuye el peso en 49.02 gramos.
+- **Talla**: El aumento de 1cm en la talla, en promedio, aumentará en 92.37 gramos el peso del niño al nacer.
+- **Semanas de gestación**: El aumento de una semana de gestación aumenta el peso del infante en 97.64 gramos.
+
+###
+
+- **Edad de la madre**: El aumento de un año en la edad de la madre, en promedio, aumenta el peso del recién nacido en 4.30 gramos.
+- **Controles prenatales**: El aumento de un control prenatal, en promedio, aumenta en 2.13 gramos el peso del neonato.
+- **Numero de embarazos**: Por cada embarazo adicional de la madre, el peso del niño al nacer aumenta en 8.95 gramos.
+- **Estado Civil**: El hecho de que la madre del infante viuda, disminuye el peso del neonato en 15.394 gramos, en comparación al suceso de quela madre tenga otro estado civil. 
+- **Etnia**: se puede decir que el pertenecer a cualquier etnia aumenta el peso del niño en comparación a un infante indígena. 
+
+
+# Conslusiones
+
+###
+
+- Los signos de las variables estudiadas y utilizadas en la regresión múltiple coinciden con los signos esperados de la teoría.
+- Carecer de la información del padre sesga el estudio pues es considerada como información relevante. 
+- Se puede notar que en el modelo la variable que más afecta el peso del niño al nacer son las *semanas de gestación* de la madre y la *talla*, que en este caso aumenta aproximadamente 97 gramos el peso del infante y 92 gramos respectivamente.
